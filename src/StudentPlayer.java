@@ -5,6 +5,7 @@ import java.util.ArrayList;
 
 public class StudentPlayer extends Player{
     int otherPlayerIndex = 2;
+    int robotPlayerIndex = 1;
 
     public StudentPlayer(int playerIndex, int[] boardSize, int nToConnect) {
         super(playerIndex, boardSize, nToConnect);
@@ -68,7 +69,7 @@ public class StudentPlayer extends Player{
     private int eval(Board board, int playerIndex){        
         int bestChance = 0;
         for (int i=0; i<boardSize[0]; i++){
-            int r = howManyInARow(i, 1, board);
+            int r = howManyInARow(i, robotPlayerIndex, board);
             if (r == 3){
                 bestChance += 50;
             } else if (r == 2){
@@ -78,7 +79,7 @@ public class StudentPlayer extends Player{
             }
         }
         for (int j=0; j<boardSize[1]; j++){
-            int c = howManyInACol(j, 1, board);
+            int c = howManyInACol(j, robotPlayerIndex, board);
             if (c == 3){
                 bestChance += 50;
             } else if (c == 2){
