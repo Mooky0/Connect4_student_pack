@@ -6,6 +6,7 @@ import java.util.ArrayList;
 public class StudentPlayer extends Player{
     int otherPlayerIndex = 2;
     int robotPlayerIndex = 1;
+    int startDepth = 5;
 
     public StudentPlayer(int playerIndex, int[] boardSize, int nToConnect) {
         super(playerIndex, boardSize, nToConnect);
@@ -15,11 +16,12 @@ public class StudentPlayer extends Player{
     public int step(Board board) {
         ArrayList<Integer> steps = board.getValidSteps();
         Integer bestStep = 0;
-        Integer maxChance = 0;
+        Integer maxChance = -10000000;
         for (Integer step : steps) {
             Board child = new Board(board);
             child.step(playerIndex, step);
-            int nextStep = minimax(child, 6,  true, playerIndex);
+            int nextStep = minimax(child, startDepth,  false);
+            System.out.println(nextStep);
             if (nextStep > maxChance){
                 maxChance = nextStep;
                 bestStep = step;
@@ -28,15 +30,16 @@ public class StudentPlayer extends Player{
         return bestStep;
     }
 
-    private int minimax(Board board, int depth, boolean maxOrMin, int playerIndex){
+    private int minimax(Board board, int depth, boolean maxOrMin){
         if (depth == 0){
-            return eval(board, playerIndex);
+            int e = eval(board, playerIndex);
+            return e;
         }
         else if(board.gameEnded()){
             if(playerIndex == board.getWinner()){
-                return 1000;
+                return 10000 /* * (startDepth - depth) */;
             }else{
-                return -1000;
+                return -10000  /* / (startDepth - depth) */;
             }
         }
 
@@ -44,22 +47,22 @@ public class StudentPlayer extends Player{
         ArrayList<Integer> validSteps = board.getValidSteps();
         // A robot a max, szóval ő az O
         if (maxOrMin){
-            int maxEval = -10000;
+            int maxEval = -100000;
             for (Integer step : validSteps) {
                 Board child = new Board(board);
                 child.step(playerIndex, step);
-                int evalOfBoard = minimax(child, depth-1, false, playerIndex);
+                int evalOfBoard = minimax(child, depth-1, false);
                 maxEval = max(maxEval, evalOfBoard);
             }
             return maxEval;
         }
         // Az ember az X azaz a min
         else{
-            int minEval = 10000;
+            int minEval = 100000;
             for (Integer step : validSteps) {
                 Board child = new Board(board);
                 child.step(playerIndex, step);
-                int evalOfBoard = minimax(child, depth-1, true, otherPlayerIndex);
+                int evalOfBoard = minimax(child, depth-1, true);
                 minEval = min(minEval, evalOfBoard);
             }
             return minEval;
@@ -67,105 +70,89 @@ public class StudentPlayer extends Player{
     }
 
     private int eval(Board board, int playerIndex){        
-        int bestChance = 0;
-        for (int i=0; i<boardSize[0]; i++){
-            int r = howManyInARow(i, robotPlayerIndex, board);
-            if (r == 3){
-                bestChance += 50;
-            } else if (r == 2){
-                bestChance += 10;
-            } else if (r == 1){
-                bestChance += 1;
+        int score = 0;
+        for (int r=0; r<boardSize[0]; r++){
+            for (int c=0; c<boardSize[1]; c++){
+                int hmr = howManyInARow(r, c, playerIndex, board);
+                if(hmr == 4)
+                    score += 100;
+                else if (hmr == 3)
+                    score += 50;
+                else if(hmr == 2)
+                    score += 10;
+                else if (hmr == 1)
+                    score += 1;
+
+                int hmc = howManyInACol(r, c, playerIndex, board);
+                if(hmc == 4)
+                    score += 100;
+                else if (hmc == 3)
+                    score += 50;
+                else if(hmc == 2)
+                    score += 10;
+                else if (hmc == 1)
+                    score += 1;
+                
+                int other_player_index = playerIndex == 2 ? 1 : 2;    
+                hmr = howManyInARow(r, c, other_player_index, board);
+                if(hmr == 4)
+                    score -= 100;
+                else if (hmr == 3)
+                    score -= 50;
+                else if(hmr == 2)
+                    score -= 10;
+                else if (hmr == 1)
+                    score -= 1;
+
+                hmc = howManyInACol(r, c, other_player_index, board);
+                if(hmc == 4)
+                    score -= 100;
+                else if (hmc == 3)
+                    score -= 50;
+                else if(hmc == 2)
+                    score -= 10;
+                else if (hmc == 1)
+                    score -= 1;
             }
         }
-        for (int j=0; j<boardSize[1]; j++){
-            int c = howManyInACol(j, robotPlayerIndex, board);
-            if (c == 3){
-                bestChance += 50;
-            } else if (c == 2){
-                bestChance += 10;
-            } else if (c == 1){
-                bestChance += 1;
-            }
-        }
-        for (int i=0; i<boardSize[0]; i++){
-            int r = howManyInARow(i, otherPlayerIndex, board);
-            if (r == 3){
-                bestChance -= 50;
-            } else if (r == 2){
-                bestChance -= 10;
-            } else if (r == 1){
-                bestChance -= 1;
-            }
-        }
-        for (int j=0; j<boardSize[1]; j++){
-            int c = howManyInACol(j, otherPlayerIndex, board);
-            if (c == 3){
-                bestChance -= 50;
-            } else if (c == 2){
-                bestChance -= 10;
-            } else if (c == 1){
-                bestChance -= 1;
-            }
-        }
-        //System.out.println(bestChance);
-        return bestChance;
+        return score;
     }
 
-    private int howManyInARow(int row, int playerIndex, Board board) {
+    private int howManyInARow(int row, int col, int playerIndex, Board board) {
         int nInARow = 0;
 
-        int startCol = 0;
-        int endCol = boardSize[1];
+        int startCol = col;
+        int endCol = min(boardSize[1], startCol+4);
+        //int other_player_index = playerIndex == 1 ? 0 : 1;
 
         for (int c = startCol; c < endCol; c++) {
-            if (board.getState()[row][c] == playerIndex) {
-                if (c == 0){
-                    if (board.getState()[row][c+1] == playerIndex || board.getState()[row][c+1] == playerIndex)
-                        nInARow++;
-                } else if(c == 6){
-                    if (board.getState()[row][c-1] == playerIndex || board.getState()[row][c-1] == playerIndex)
-                        nInARow++;
-                } else {
-                    if ((board.getState()[row][c-1] == playerIndex || board.getState()[row][c-1] == playerIndex) && (board.getState()[row][c+1] == playerIndex || board.getState()[row][c+1] == playerIndex))
-                        nInARow++;
-                }
-
+            if (board.getState()[row][c] == playerIndex){
                 nInARow++;
-            } else if (board.getState()[row][c] == otherPlayerIndex){
-                nInARow = 0;
-            } else {
-                nInARow *= 2;
+            }
+            else if(board.getState()[row][c] == 0 && (row == 0 || board.getState()[row-1][c] != 0)){
+                nInARow++;
+            }
+             else {
+                return 0;
             }
         }
         return nInARow;
     }
 
-    private int howManyInACol(int col, int playerIndex, Board board) {
+    private int howManyInACol(int row, int col, int playerIndex, Board board) {
         int nInACol = 0;
 
-        int startRow = 0;
-        int endRow = boardSize[0];
+        int startRow = row;
+        int endRow = min(boardSize[0], startRow+4);
+        //int other_player_index = playerIndex == 1 ? 0 : 1;
 
         for (int r = startRow; r < endRow; r++) {
             if (board.getState()[r][col] == playerIndex) {
-                if (r == 5){
-                    if (board.getState()[r-1][col] == playerIndex || board.getState()[r-1][col] == 0)
-                    nInACol++;
-                }
-                else if (r == 0){
-                    if (board.getState()[r+1][col] == playerIndex || board.getState()[r+1][col] == 0)
-                    nInACol++;
-                }
-                else{
-                    if ((board.getState()[r-1][col] == playerIndex || board.getState()[r-1][col] == 0) && (board.getState()[r+1][col] == playerIndex || board.getState()[r+1][col] == 0))
-                        nInACol++;
-                }
-                    
-            } else if (board.getState()[r][col] == otherPlayerIndex){
-                nInACol = 0;
-            } else {
-                nInACol *= 2;
+                nInACol++;
+            } else if (board.getState()[r][col] == 0 && (row == 0 || board.getState()[r-1][col] != 0)){
+                nInACol++;
+            } else{
+                return 0;
             }
         }
         return nInACol;
